@@ -1,7 +1,6 @@
 # Users 
 Bysoft users service
 
-# Доделать сервис регистрации/выдачи токенов users и развернуть на хосте bysoft.ru
 ## Основные методы:
 
 ### http://bysoft.ru/api/v1/users/signIn - логин 
