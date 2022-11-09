@@ -43,9 +43,8 @@ Response
 
 ### http://bysoft.ru/api/v1/users/me - получение информации о профиле пользователя
 
-```
-
 Response
+
 ```json
 {
   "userId": "be53694e-7b60-4d57-b62f-4acaf5f458a1",
