@@ -41,6 +41,7 @@ Response
 ```
 
 ### GET http://bysoft.ru/api/v1/users/me - получение информации о профиле пользователя
+Требуется access-token в заголовке X-API-Token
 
 Response
 
@@ -53,7 +54,7 @@ Response
 }
 ```
 
-### http://bysoft.ru/api/v1/users/refresh - получение новых токенов по refresh
+### POST http://bysoft.ru/api/v1/users/refresh - получение новых токенов по refresh
 
 Request
 ```json
