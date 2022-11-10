@@ -11,20 +11,26 @@ import (
 
 	"github.com/bysoft-wallet/users/internal/app"
 	apperrors "github.com/bysoft-wallet/users/internal/app/errors"
+	"github.com/bysoft-wallet/users/internal/app/jwt"
 	"github.com/bysoft-wallet/users/internal/app/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
+	"github.com/google/uuid"
 )
 
 type HttpServer struct {
-	app *app.Application
+	app          *app.Application
+	accessHeader string
 }
 
 const DEFAULT_PORT = "8088"
 
-func NewHttpServer(app *app.Application) *HttpServer {
-	return &HttpServer{app: app}
+func NewHttpServer(app *app.Application, accessHeader string) *HttpServer {
+	return &HttpServer{
+		app:          app,
+		accessHeader: accessHeader,
+	}
 }
 
 func (h *HttpServer) Start() {
@@ -51,7 +57,7 @@ func (h *HttpServer) registerMiddlewares(r *chi.Mux) {
 }
 
 func (h *HttpServer) registerRoutes(r *chi.Mux) {
-	r.Route("/api/v1", func(r chi.Router) {
+	r.Route("/users/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			render.JSON(w, r, map[string]string{"status": "ok"})
 		})
@@ -60,6 +66,8 @@ func (h *HttpServer) registerRoutes(r *chi.Mux) {
 			r.Post("/signIn", h.signIn)
 			r.Post("/signUp", h.signUp)
 		})
+
+		r.Get("/me", h.me)
 	})
 }
 
@@ -79,12 +87,24 @@ type TokenPairResponse struct {
 	Refresh string `json:"refresh"`
 }
 
+type UserResponse struct {
+	UUID  uuid.UUID `json:"uuid"`
+	Email string    `json:"email"`
+	Name  string    `json:"name"`
+}
+
 func (e *TokenPairResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	render.Status(r, 200)
 	return nil
 }
 
+func (e *UserResponse) Render(w http.ResponseWriter, r *http.Request) error {
+	render.Status(r, 200)
+	return nil
+}
+
 func (h *HttpServer) signIn(w http.ResponseWriter, r *http.Request) {
+	log.Printf("IP %v", r.RemoteAddr)
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
@@ -101,6 +121,7 @@ func (h *HttpServer) signIn(w http.ResponseWriter, r *http.Request) {
 	serviceRequest := &service.SignInRequest{
 		Email:    request.Email,
 		Password: request.Password,
+		Ip:       r.RemoteAddr,
 	}
 
 	tokens, err := h.app.AuthService.SignIn(r.Context(), serviceRequest)
@@ -135,6 +156,7 @@ func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 		Email:    request.Email,
 		Password: request.Password,
 		Name:     request.Name,
+		Ip:       r.RemoteAddr,
 	}
 
 	tokens, err := h.app.AuthService.SignUp(r.Context(), serviceRequest)
@@ -149,6 +171,37 @@ func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 	})
 
 	return
+}
+
+func (h *HttpServer) me(w http.ResponseWriter, r *http.Request) {
+	access, err := h.getAccessFromHeader(w, r)
+	if err != nil {
+		Unauthorised("unathorized", err, w, r)
+		return
+	}
+
+	user, err := h.app.AuthService.GetUser(r.Context(), access.Claims.UserId)
+	if err != nil {
+		Unauthorised("unathorized", err, w, r)
+		return
+	}
+
+	render.Render(w, r, &UserResponse{
+		UUID:  user.UUID,
+		Email: user.Email,
+		Name:  user.Name,
+	})
+}
+
+func (h *HttpServer) getAccessFromHeader(w http.ResponseWriter, r *http.Request) (*jwt.AccessJWT, error) {
+	tokenHeader := r.Header.Get("X-API-Token")
+	
+	access, err := h.app.JWTService.ValidateAccess(tokenHeader)
+	if err != nil {
+		return &jwt.AccessJWT{}, err
+	}
+
+	return access, nil
 }
 
 func InternalError(slug string, err error, w http.ResponseWriter, r *http.Request) {
@@ -187,7 +240,6 @@ func RespondWithAppError(err error, w http.ResponseWriter, r *http.Request) {
 }
 
 func httpRespondWithError(err error, slug string, w http.ResponseWriter, r *http.Request, logMSg string, status int) {
-	log.Printf("HTTP Request error %s %s %s", err, slug, logMSg)
 	resp := ErrorResponse{slug, status}
 
 	if err := render.Render(w, r, resp); err != nil {

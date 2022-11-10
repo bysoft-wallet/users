@@ -43,7 +43,6 @@ type UserRepository interface {
 	FindById(ctx context.Context, uuid uuid.UUID) (*User, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	Add(ctx context.Context, user *User) error
-
 }
 
 func NewUserService(uRepo UserRepository) *UserService {

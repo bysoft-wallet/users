@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log"
 	"time"
 
 	appErr "github.com/bysoft-wallet/users/internal/app/errors"
@@ -17,19 +16,21 @@ type AuthService struct {
 }
 
 type LoginResponse struct {
-	Access  *jwt.ServiceJWT
-	Refresh *jwt.ServiceJWT
+	Access  *jwt.AccessJWT
+	Refresh *jwt.RefreshJWT
 }
 
 type SignInRequest struct {
 	Email    string
 	Password string
+	Ip       string
 }
 
 type SignUpRequest struct {
 	Email    string
 	Password string
 	Name     string
+	Ip       string
 }
 
 func NewAuthService(ur user.UserRepository, jwt *jwt.JWTService) *AuthService {
@@ -49,7 +50,7 @@ func (h *AuthService) SignIn(ctx context.Context, r *SignInRequest) (*LoginRespo
 		return &LoginResponse{}, appErr.NewNotFoundError("User not found", "user-not-found")
 	}
 
-	return h.loginResponseForUser(userFound)
+	return h.createTokens(ctx, userFound, r.Ip)
 }
 
 func (h *AuthService) SignUp(ctx context.Context, r *SignUpRequest) (*LoginResponse, error) {
@@ -81,10 +82,10 @@ func (h *AuthService) SignUp(ctx context.Context, r *SignUpRequest) (*LoginRespo
 		return &LoginResponse{}, appErr.NewAppError(err.Error(), "user-saving-error")
 	}
 
-	return h.loginResponseForUser(user)
+	return h.createTokens(ctx, user, r.Ip)
 }
 
-func (h *AuthService) loginResponseForUser(user *user.User) (*LoginResponse, error) {
+func (h *AuthService) createTokens(ctx context.Context, user *user.User, ip string) (*LoginResponse, error) {
 	accessClaims := jwt.NewAccessClaims(
 		user.UUID,
 		user.Email,
@@ -100,7 +101,7 @@ func (h *AuthService) loginResponseForUser(user *user.User) (*LoginResponse, err
 		return &LoginResponse{}, appErr.NewAuthorizationError("Could not authorize user", "could-not-authorize-user")
 	}
 
-	refresh, err := h.jwtService.CreateRefresh(*refreshClaims)
+	refresh, err := h.jwtService.CreateRefresh(ctx, *refreshClaims, ip)
 	if err != nil {
 		return &LoginResponse{}, appErr.NewAuthorizationError("Could not authorize user", "could-not-authorize-user")
 	}
@@ -109,4 +110,8 @@ func (h *AuthService) loginResponseForUser(user *user.User) (*LoginResponse, err
 		Access:  access,
 		Refresh: refresh,
 	}, nil
+}
+
+func (h *AuthService) GetUser(ctx context.Context, user_uuid uuid.UUID) (*user.User, error) {
+	return h.userRepository.FindById(ctx, user_uuid)
 }

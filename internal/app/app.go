@@ -14,6 +14,7 @@ import (
 
 type Application struct {
 	AuthService *service.AuthService
+	JWTService  *jwt.JWTService
 }
 
 func NewApplication(ctx context.Context) (*Application, error) {
@@ -29,10 +30,20 @@ func NewApplication(ctx context.Context) (*Application, error) {
 		return &Application{}, errors.New("JWT configuration must be provided")
 	}
 
+	jwtService := jwt.NewJwtService(
+		JWTSecret,
+		JWTAccessTTL,
+		JWTRefreshTTL,
+		adapters.NewRefreshPgsqlRepository(conn),
+	)
+
+	authService := service.NewAuthService(
+		adapters.NewUserPgsqlRepository(conn),
+		jwtService,
+	)
+
 	return &Application{
-		AuthService: service.NewAuthService(
-			adapters.NewUserPgsqlRepository(conn),
-			jwt.NewJwtService(JWTSecret, JWTAccessTTL, JWTRefreshTTL),
-		),
+		AuthService: authService,
+		JWTService:  jwtService,
 	}, nil
 }

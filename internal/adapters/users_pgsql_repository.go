@@ -31,7 +31,7 @@ func NewUserPgsqlRepository(conn *pgx.Conn) *UserPgsqlRepository {
 func (s *UserPgsqlRepository) FindById(ctx context.Context, uuid uuid.UUID) (*user.User, error) {
 	userModel := &UserModel{}
 	if err := pgxscan.Get(
-		ctx, s.conn, userModel, "select * from users where id = $1", uuid,
+		ctx, s.conn, userModel, "select * from users where uuid = $1", uuid,
 	); err != nil {
 		if pgxscan.NotFound(err) {
 			return &user.User{}, errors.NewNotFoundError("User not found", "user-not-found")

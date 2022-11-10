@@ -17,6 +17,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := ports.NewHttpServer(app)
+	accessHeader := os.Getenv("ACCESS_TOKEN_HEADER")
+	
+	server := ports.NewHttpServer(app, accessHeader)
 	server.Start()
 }
