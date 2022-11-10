@@ -3,7 +3,7 @@ Bysoft users service
 
 ## Основные методы:
 
-### http://bysoft.ru/api/v1/users/signIn - логин 
+### POST http://bysoft.ru/api/v1/users/signIn - логин 
 
 Request
 ```json
@@ -21,7 +21,7 @@ Response
 }
 ```
 
-### http://bysoft.ru/api/v1/users/signUp - регистрация
+### POST http://bysoft.ru/api/v1/users/signUp - регистрация
 
 Request
 ```json
@@ -40,7 +40,7 @@ Response
 }
 ```
 
-### http://bysoft.ru/api/v1/users/me - получение информации о профиле пользователя
+### GET http://bysoft.ru/api/v1/users/me - получение информации о профиле пользователя
 
 Response
 
