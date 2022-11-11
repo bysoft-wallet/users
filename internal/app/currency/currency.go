@@ -1,12 +1,14 @@
 package currency
 
+import "errors"
+
 type Currency struct {
 	v string
 }
 
 var (
 	UNKNOWN = Currency{"UNKNOWN"}
-	RUR     = Currency{"RUR"}
+	RUB     = Currency{"RUB"}
 	GEL     = Currency{"GEL"}
 	AMD     = Currency{"AMD"}
 	USD     = Currency{"USD"}
@@ -19,8 +21,8 @@ func (c Currency) String() string {
 
 func FromString(value string) (Currency, error) {
 	switch value {
-	case RUR.String():
-		return RUR, nil
+	case RUB.String():
+		return RUB, nil
 	case GEL.String():
 		return GEL, nil
 	case AMD.String():
@@ -31,5 +33,5 @@ func FromString(value string) (Currency, error) {
 		return EUR, nil
 	}
 
-	return UNKNOWN, nil
+	return UNKNOWN, errors.New("Invalid currency value")
 }

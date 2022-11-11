@@ -211,7 +211,7 @@ func (h *HttpServer) updateSettings(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.app.AuthService.UpdateSettings(r.Context(), &serviceRequest)
 	if err != nil {
-		Unauthorised("unathorized", err, w, r)
+		RespondWithAppError(err, w,r)
 		return
 	}
 
@@ -234,7 +234,7 @@ func (h *HttpServer) me(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.app.AuthService.GetUser(r.Context(), access.Claims.UserId)
 	if err != nil {
-		Unauthorised("unathorized", err, w, r)
+		RespondWithAppError(err, w,r)
 		return
 	}
 
@@ -264,7 +264,7 @@ func (h *HttpServer) refresh(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.app.AuthService.Refresh(r.Context(), request.Refresh, r.RemoteAddr)
 	if err != nil {
-		RespondWithAppError(err, w, r)
+		RespondWithAppError(err, w,r)
 		return
 	}
 

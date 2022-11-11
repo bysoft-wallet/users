@@ -25,7 +25,7 @@ type Settings struct {
 
 func DefaultUserSettings() Settings {
 	return Settings{
-		Currency: currency.RUR,
+		Currency: currency.RUB,
 	}
 }
 
