@@ -34,12 +34,18 @@ func NewApplication(ctx context.Context) (*Application, error) {
 		JWTSecret,
 		JWTAccessTTL,
 		JWTRefreshTTL,
-		adapters.NewRefreshPgsqlRepository(conn),
 	)
+
+	maxSessions, err := strconv.Atoi(os.Getenv("MAX_USER_SESSIONS"))
+	if err != nil {
+		return &Application{}, errors.New("Max user sessions configuration must be provided")
+	}
 
 	authService := service.NewAuthService(
 		adapters.NewUserPgsqlRepository(conn),
 		jwtService,
+		adapters.NewRefreshPgsqlRepository(conn),
+		maxSessions,
 	)
 
 	return &Application{

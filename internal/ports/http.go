@@ -65,15 +65,21 @@ func (h *HttpServer) registerRoutes(r *chi.Mux) {
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/signIn", h.signIn)
 			r.Post("/signUp", h.signUp)
+			r.Post("/refresh", h.refresh)
 		})
 
 		r.Get("/me", h.me)
+		r.Put("/settings", h.updateSettings)
 	})
 }
 
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type RefreshRequest struct {
+	Refresh string `json:"refresh"`
 }
 
 type SignUpRequest struct {
@@ -88,9 +94,14 @@ type TokenPairResponse struct {
 }
 
 type UserResponse struct {
-	UUID  uuid.UUID `json:"uuid"`
-	Email string    `json:"email"`
-	Name  string    `json:"name"`
+	UUID     uuid.UUID       `json:"uuid"`
+	Email    string          `json:"email"`
+	Name     string          `json:"name"`
+	Settings SettingsPayload `json:"settings"`
+}
+
+type SettingsPayload struct {
+	Currency string `json:"currency"`
 }
 
 func (e *TokenPairResponse) Render(w http.ResponseWriter, r *http.Request) error {
@@ -173,6 +184,47 @@ func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func (h *HttpServer) updateSettings(w http.ResponseWriter, r *http.Request) {
+	access, err := h.getAccessFromHeader(w, r)
+	if err != nil {
+		Unauthorised("unathorized", err, w, r)
+		return
+	}
+
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body) // response body is []byte
+	if err != nil {
+		BadRequest("invalid-body", err, w, r)
+		return
+	}
+
+	var payload SettingsPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		BadRequest("invalid-json", err, w, r)
+		return
+	}
+
+	serviceRequest := service.UpdateSettingsRequest{
+		Currency: payload.Currency,
+		UserUUID: access.Claims.UserId,
+	}
+
+	user, err := h.app.AuthService.UpdateSettings(r.Context(), &serviceRequest)
+	if err != nil {
+		Unauthorised("unathorized", err, w, r)
+		return
+	}
+
+	render.Render(w, r, &UserResponse{
+		UUID:  user.UUID,
+		Email: user.Email,
+		Name:  user.Name,
+		Settings: SettingsPayload{
+			Currency: user.Settings.Currency.String(),
+		},
+	})
+}
+
 func (h *HttpServer) me(w http.ResponseWriter, r *http.Request) {
 	access, err := h.getAccessFromHeader(w, r)
 	if err != nil {
@@ -190,12 +242,41 @@ func (h *HttpServer) me(w http.ResponseWriter, r *http.Request) {
 		UUID:  user.UUID,
 		Email: user.Email,
 		Name:  user.Name,
+		Settings: SettingsPayload{
+			Currency: user.Settings.Currency.String(),
+		},
+	})
+}
+
+func (h *HttpServer) refresh(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body) // response body is []byte
+	if err != nil {
+		BadRequest("invalid-body", err, w, r)
+		return
+	}
+
+	var request RefreshRequest
+	if err := json.Unmarshal(body, &request); err != nil {
+		BadRequest("invalid-json", err, w, r)
+		return
+	}
+
+	tokens, err := h.app.AuthService.Refresh(r.Context(), request.Refresh, r.RemoteAddr)
+	if err != nil {
+		RespondWithAppError(err, w, r)
+		return
+	}
+
+	render.Render(w, r, &TokenPairResponse{
+		Access:  tokens.Access.Token,
+		Refresh: tokens.Refresh.Token,
 	})
 }
 
 func (h *HttpServer) getAccessFromHeader(w http.ResponseWriter, r *http.Request) (*jwt.AccessJWT, error) {
 	tokenHeader := r.Header.Get("X-API-Token")
-	
+
 	access, err := h.app.JWTService.ValidateAccess(tokenHeader)
 	if err != nil {
 		return &jwt.AccessJWT{}, err
@@ -240,6 +321,7 @@ func RespondWithAppError(err error, w http.ResponseWriter, r *http.Request) {
 }
 
 func httpRespondWithError(err error, slug string, w http.ResponseWriter, r *http.Request, logMSg string, status int) {
+	log.Printf("HTTP Request error %v", err)
 	resp := ErrorResponse{slug, status}
 
 	if err := render.Render(w, r, resp); err != nil {

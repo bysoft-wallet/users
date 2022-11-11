@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"log"
 	"time"
 
+	"github.com/bysoft-wallet/users/internal/app/currency"
+	"github.com/bysoft-wallet/users/internal/app/errors"
 	appErr "github.com/bysoft-wallet/users/internal/app/errors"
 	"github.com/bysoft-wallet/users/internal/app/jwt"
 	"github.com/bysoft-wallet/users/internal/app/user"
@@ -11,8 +14,10 @@ import (
 )
 
 type AuthService struct {
-	userRepository user.UserRepository
-	jwtService     *jwt.JWTService
+	userRepository    user.UserRepository
+	jwtService        *jwt.JWTService
+	refreshRepository jwt.RefreshJWTRepository
+	maxUserSessions   int
 }
 
 type LoginResponse struct {
@@ -33,10 +38,17 @@ type SignUpRequest struct {
 	Ip       string
 }
 
-func NewAuthService(ur user.UserRepository, jwt *jwt.JWTService) *AuthService {
+type UpdateSettingsRequest struct {
+	UserUUID uuid.UUID
+	Currency string
+}
+
+func NewAuthService(ur user.UserRepository, jwt *jwt.JWTService, rfr jwt.RefreshJWTRepository, mus int) *AuthService {
 	return &AuthService{
-		userRepository: ur,
-		jwtService:     jwt,
+		userRepository:    ur,
+		jwtService:        jwt,
+		refreshRepository: rfr,
+		maxUserSessions:   mus,
 	}
 }
 
@@ -73,6 +85,7 @@ func (h *AuthService) SignUp(ctx context.Context, r *SignUpRequest) (*LoginRespo
 		r.Email,
 		r.Name,
 		hash,
+		user.DefaultUserSettings(),
 		time.Now(),
 		time.Now(),
 	)
@@ -101,9 +114,27 @@ func (h *AuthService) createTokens(ctx context.Context, user *user.User, ip stri
 		return &LoginResponse{}, appErr.NewAuthorizationError("Could not authorize user", "could-not-authorize-user")
 	}
 
-	refresh, err := h.jwtService.CreateRefresh(ctx, *refreshClaims, ip)
+	refresh, err := h.jwtService.CreateRefresh(*refreshClaims, ip)
 	if err != nil {
-		return &LoginResponse{}, appErr.NewAuthorizationError("Could not authorize user", "could-not-authorize-user")
+		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "could-not-authorize-user")
+	}
+
+	refreshCount, err := h.refreshRepository.CountForUser(ctx, refreshClaims.UserId)
+	if err != nil {
+		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "could-not-authorize-user")
+	}
+
+	log.Printf("Refresh count %v sessions %v", refreshCount, h.maxUserSessions)
+	if refreshCount > h.maxUserSessions {
+		err = h.refreshRepository.DeleteForUserUUID(ctx, refreshClaims.UserId)
+		if err != nil {
+			return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "could-not-authorize-user")
+		}
+	}
+
+	err = h.refreshRepository.Add(ctx, refresh)
+	if err != nil {
+		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "could-not-authorize-user")
 	}
 
 	return &LoginResponse{
@@ -114,4 +145,52 @@ func (h *AuthService) createTokens(ctx context.Context, user *user.User, ip stri
 
 func (h *AuthService) GetUser(ctx context.Context, user_uuid uuid.UUID) (*user.User, error) {
 	return h.userRepository.FindById(ctx, user_uuid)
+}
+
+func (h *AuthService) SaveRefresh(ctx context.Context, user_uuid uuid.UUID) (*user.User, error) {
+	return h.userRepository.FindById(ctx, user_uuid)
+}
+
+func (h *AuthService) Refresh(ctx context.Context, tokenString, ip string) (*LoginResponse, error) {
+	refresh, err := h.jwtService.ValidateRefresh(tokenString, ip)
+	if err != nil {
+		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-jwt")
+	}
+
+	exists, err := h.refreshRepository.Exists(ctx, refresh.Claims.UUID, refresh.Claims.UserId, ip, tokenString)
+	if err != nil {
+		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-jwt")
+	}
+
+	if !exists {
+		return &LoginResponse{}, errors.NewAuthorizationError("Refresh not found", "invalid-jwt")
+	}
+
+	err = h.refreshRepository.Delete(ctx, refresh.Claims.UUID)
+	if err != nil {
+		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-jwt")
+	}
+
+	user, err := h.userRepository.FindById(ctx, refresh.Claims.UserId)
+	if err != nil {
+		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-jwt")
+	}
+
+	return h.createTokens(ctx, user, ip)
+}
+
+func (h *AuthService) UpdateSettings(ctx context.Context, request *UpdateSettingsRequest) (*user.User, error) {
+	cur, err := currency.FromString(request.Currency)
+	if err != nil {
+		return &user.User{}, appErr.NewIncorrectInputError("Invalid currency", "invalid-currency")
+	}
+
+	settings := user.NewSettings(cur)
+
+	_, err = h.userRepository.FindById(ctx, request.UserUUID)
+	if err != nil {
+		return &user.User{}, err
+	}
+
+	return h.userRepository.UpdateSettings(ctx, request.UserUUID, &settings)
 }

@@ -12,7 +12,7 @@ import (
 
 type RefreshModel struct {
 	UUID      uuid.UUID `db:"uuid"`
-	userUUID  uuid.UUID `db:"user_uuid"`
+	UserUUID  uuid.UUID `db:"user_uuid"`
 	Token     string    `db:"token"`
 	Ip        string    `db:"ip"`
 	CreatedAt time.Time `db:"created_at"`
@@ -61,10 +61,37 @@ func (s *RefreshPgsqlRepository) Exists(ctx context.Context, uuid, userUUID uuid
 	return true, nil
 }
 
+func (s *RefreshPgsqlRepository) Delete(ctx context.Context, uuid uuid.UUID) error {
+	_, err := s.conn.Exec(ctx, "delete from refresh_tokens where uuid = $1", uuid)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *RefreshPgsqlRepository) DeleteForUserUUID(ctx context.Context, userUUID uuid.UUID) error {
+	_, err := s.conn.Exec(ctx, "delete from refresh_tokens where user_uuid = $1", userUUID)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *RefreshPgsqlRepository) CountForUser(ctx context.Context, userUUID uuid.UUID) (int, error) {
+	var counter int
+
+	err := s.conn.QueryRow(ctx, "SELECT count(*) FROM refresh_tokens where user_uuid = $1", userUUID).Scan(&counter)
+	return counter, err
+}
+
 func serviceRefreshJWTFromModel(model *RefreshModel) (*jwt.RefreshJWT, error) {
 	claims := &jwt.RefreshClaims{
 		UUID:   model.UUID,
-		UserId: model.userUUID,
+		UserId: model.UserUUID,
 	}
 
 	return &jwt.RefreshJWT{

@@ -5,16 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bysoft-wallet/users/internal/app/errors"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 )
 
 type JWTService struct {
-	secret            string
-	accessTTL         int
-	refreshTTL        int
-	refreshRepository RefreshJWTRepository
+	secret     string
+	accessTTL  int
+	refreshTTL int
 }
 
 type AccessClaims struct {
@@ -42,6 +40,9 @@ type RefreshJWT struct {
 type RefreshJWTRepository interface {
 	Add(ctx context.Context, refresh *RefreshJWT) error
 	Exists(ctx context.Context, uuid, userUUID uuid.UUID, ip string, token string) (bool, error)
+	Delete(ctx context.Context, uuid uuid.UUID) error
+	DeleteForUserUUID(ctx context.Context, userUUID uuid.UUID) error
+	CountForUser(ctx context.Context, userUUID uuid.UUID) (int, error)
 }
 
 func NewAccessClaims(UserId uuid.UUID, Email, Name string) *AccessClaims {
@@ -56,12 +57,11 @@ func NewRefreshClaims(UserId uuid.UUID) *RefreshClaims {
 	}
 }
 
-func NewJwtService(secret string, accessTTL, refreshTTL int, refreshRepository RefreshJWTRepository) *JWTService {
+func NewJwtService(secret string, accessTTL, refreshTTL int) *JWTService {
 	return &JWTService{
-		secret:            secret,
-		accessTTL:         accessTTL,
-		refreshTTL:        refreshTTL,
-		refreshRepository: refreshRepository,
+		secret:     secret,
+		accessTTL:  accessTTL,
+		refreshTTL: refreshTTL,
 	}
 }
 
@@ -80,7 +80,7 @@ func (h *JWTService) CreateAccess(c AccessClaims) (*AccessJWT, error) {
 	}, nil
 }
 
-func (h *JWTService) CreateRefresh(ctx context.Context, c RefreshClaims, ip string) (*RefreshJWT, error) {
+func (h *JWTService) CreateRefresh(c RefreshClaims, ip string) (*RefreshJWT, error) {
 	c.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Duration(h.refreshTTL) * time.Second))
 	c.UUID = uuid.New()
 
@@ -90,18 +90,11 @@ func (h *JWTService) CreateRefresh(ctx context.Context, c RefreshClaims, ip stri
 		return &RefreshJWT{}, err
 	}
 
-	refresh := &RefreshJWT{
+	return &RefreshJWT{
 		Claims: c,
 		Token:  sign,
 		Ip:     ip,
-	}
-
-	err = h.refreshRepository.Add(ctx, refresh)
-	if err != nil {
-		return &RefreshJWT{}, err
-	}
-
-	return refresh, nil
+	}, nil
 }
 
 func (h *JWTService) ValidateAccess(token string) (*AccessJWT, error) {
@@ -116,21 +109,12 @@ func (h *JWTService) ValidateAccess(token string) (*AccessJWT, error) {
 	}, nil
 }
 
-func (h *JWTService) ValidateRefresh(ctx context.Context, token string, ip string) (*RefreshJWT, error) {
+func (h *JWTService) ValidateRefresh(token, ip string) (*RefreshJWT, error) {
 	t, err := jwt.ParseWithClaims(token, &RefreshClaims{}, h.validateParsed)
 	if err != nil {
 		return &RefreshJWT{}, nil
 	}
 	claims := *t.Claims.(*RefreshClaims)
-
-	exists, err := h.refreshRepository.Exists(ctx, claims.UUID, claims.UserId, ip, token)
-	if err != nil {
-		return nil, err
-	}
-
-	if !exists {
-		return &RefreshJWT{}, errors.NewAuthorizationError("JWT Token not found", "invalid-jwt")
-	}
 
 	return &RefreshJWT{
 		Claims: claims,
