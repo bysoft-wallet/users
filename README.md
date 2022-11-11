@@ -50,7 +50,32 @@ Response
   "userId": "be53694e-7b60-4d57-b62f-4acaf5f458a1",
   "email": "win@win.ru",
   "name": "winwin",
-  "current_currency": "RUR",
+  "settings": {
+    "currency": "RUR"
+  }
+}
+```
+
+### PUT http://bysoft.ru/api/v1/users/settings - обновление настроек пользователя 
+Требуется access-token в заголовке X-API-Token
+
+Request
+```json
+ {
+    "currency": "RUR"
+ }
+```
+
+Response
+
+```json
+{
+  "userId": "be53694e-7b60-4d57-b62f-4acaf5f458a1",
+  "email": "win@win.ru",
+  "name": "winwin",
+  "settings": {
+    "currency": "RUR"
+  }
 }
 ```
 
