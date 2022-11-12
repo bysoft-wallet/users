@@ -155,7 +155,7 @@ func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		BadRequest("invalid-body", err, w, r)
 		return
-	}
+	} 
 
 	var request SignUpRequest
 	if err := json.Unmarshal(body, &request); err != nil {
