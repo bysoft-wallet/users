@@ -1,8 +1,6 @@
 # Users 
 Bysoft users service
 
-## Основные методы:
-
 ### POST http://bysoft.ru/api/v1/users/signIn - логин 
 
 Request
