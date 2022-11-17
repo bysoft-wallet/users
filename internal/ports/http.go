@@ -62,11 +62,11 @@ func (h *HttpServer) registerRoutes(r *chi.Mux) {
 			render.JSON(w, r, map[string]string{"status": "ok"})
 		})
 
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/signIn", h.signIn)
-			r.Post("/signUp", h.signUp)
-			r.Post("/refresh", h.refresh)
-		})
+
+		r.Post("/signIn", h.signIn)
+		r.Post("/signUp", h.signUp)
+		r.Post("/refresh", h.refresh)
+
 
 		r.Get("/me", h.me)
 		r.Put("/settings", h.updateSettings)
