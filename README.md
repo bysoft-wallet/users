@@ -1,7 +1,7 @@
 # Users 
 Bysoft users service
 
-### POST http://bysoft.ru/api/v1/users/signIn - логин 
+### POST http://bysoft.ru/users/api/v1/signIn - логин 
 
 Request
 ```json
@@ -19,7 +19,7 @@ Response
 }
 ```
 
-### POST http://bysoft.ru/api/v1/users/signUp - регистрация
+### POST http://bysoft.ru/users/api/v1/signUp - регистрация
 
 Request
 ```json
@@ -38,7 +38,7 @@ Response
 }
 ```
 
-### GET http://bysoft.ru/api/v1/users/me - получение информации о профиле пользователя
+### GET http://bysoft.ru/users/api/v1/me - получение информации о профиле пользователя
 Требуется access-token в заголовке X-API-Token
 
 Response
@@ -54,7 +54,7 @@ Response
 }
 ```
 
-### PUT http://bysoft.ru/api/v1/users/settings - обновление настроек пользователя 
+### PUT http://bysoft.ru/users/api/v1/settings - обновление настроек пользователя 
 Требуется access-token в заголовке X-API-Token
 
 Request
@@ -77,7 +77,7 @@ Response
 }
 ```
 
-### POST http://bysoft.ru/api/v1/users/refresh - получение новых токенов по refresh
+### POST http://bysoft.ru/users/api/v1/refresh - получение новых токенов по refresh
 
 Request
 ```json
