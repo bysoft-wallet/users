@@ -103,7 +103,11 @@ Response
 ```
 
 ### POST http://bysoft.ru/users/api/v1/validate_email - валидация email адреса
-
+```json
+{
+  "email": "email@email.com"
+}
+```
 Response
 
 HTTP 200 - валиден
