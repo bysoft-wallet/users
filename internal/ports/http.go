@@ -16,20 +16,24 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
 type HttpServer struct {
 	app          *app.Application
 	accessHeader string
+	validator    *validator.Validate
 }
 
 const DEFAULT_PORT = "8088"
 
 func NewHttpServer(app *app.Application, accessHeader string) *HttpServer {
+	validate := validator.New()
 	return &HttpServer{
 		app:          app,
 		accessHeader: accessHeader,
+		validator:    validate,
 	}
 }
 
@@ -62,11 +66,9 @@ func (h *HttpServer) registerRoutes(r *chi.Mux) {
 			render.JSON(w, r, map[string]string{"status": "ok"})
 		})
 
-
 		r.Post("/signIn", h.signIn)
 		r.Post("/signUp", h.signUp)
 		r.Post("/refresh", h.refresh)
-
 
 		r.Get("/me", h.me)
 		r.Put("/settings", h.updateSettings)
@@ -74,18 +76,18 @@ func (h *HttpServer) registerRoutes(r *chi.Mux) {
 }
 
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,gte=5"`
 }
 
 type RefreshRequest struct {
-	Refresh string `json:"refresh"`
+	Refresh string `json:"refresh" validate:"required"`
 }
 
 type SignUpRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,gte=5"`
+	Name     string `json:"name" validate:"required,gte=1"`
 }
 
 type TokenPairResponse struct {
@@ -101,7 +103,7 @@ type UserResponse struct {
 }
 
 type SettingsPayload struct {
-	Currency string `json:"currency"`
+	Currency string `json:"currency" validate:"required"`
 }
 
 func (e *TokenPairResponse) Render(w http.ResponseWriter, r *http.Request) error {
@@ -119,13 +121,13 @@ func (h *HttpServer) signIn(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
-		BadRequest("invalid-body", err, w, r)
+		BadRequest("invalid-input", err, w, r)
 		return
 	}
 
 	var request LoginRequest
 	if err := json.Unmarshal(body, &request); err != nil {
-		BadRequest("invalid-json", err, w, r)
+		BadRequest("invalid-input", err, w, r)
 		return
 	}
 
@@ -145,21 +147,63 @@ func (h *HttpServer) signIn(w http.ResponseWriter, r *http.Request) {
 		Access:  tokens.Access.Token,
 		Refresh: tokens.Refresh.Token,
 	})
+}
 
-	return
+func (h *HttpServer) RespondValidationError(errs []validator.FieldError, w http.ResponseWriter, r *http.Request) {
+	for _, err := range errs {
+		fmt.Println(err.Namespace())
+		fmt.Println(err.Field())
+		fmt.Println(err.StructNamespace())
+		fmt.Println(err.StructField())
+		fmt.Println(err.Tag())
+		fmt.Println(err.ActualTag())
+		fmt.Println(err.Kind())
+		fmt.Println(err.Type())
+		fmt.Println(err.Value())
+		fmt.Println(err.Param())
+	}
+
+	err := errs[0]
+
+	slug := "invalid-input"
+	if err.Field() == "Password" && err.Tag() == "gte" {
+		slug = "field-password-invalid-length"
+	} else if err.Field() == "Email" && err.Tag() == "email" {
+		slug = "field-email-invalid"
+	} else if err.Field() == "Name" && err.Tag() == "gte" {
+		slug = "field-name-invalid-length"
+	} else if err.Field() == "Name" && err.Tag() == "required" {
+		slug = "field-name-required"
+	} else if err.Field() == "Password" && err.Tag() == "required" {
+		slug = "field-password-required"
+	} else if err.Field() == "Email" && err.Tag() == "required" {
+		slug = "field-email-required"
+	} else if err.Field() == "Refresh" && err.Tag() == "required" {
+		slug = "invalid-token"
+	} else if err.Field() == "Currency" && err.Tag() == "required" {
+		slug = "field-currency-required"
+	}
+
+	BadRequest(slug, err, w, r)
 }
 
 func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
-		BadRequest("invalid-body", err, w, r)
+		BadRequest("invalid-input", err, w, r)
 		return
-	} 
+	}
 
 	var request SignUpRequest
 	if err := json.Unmarshal(body, &request); err != nil {
-		BadRequest("invalid-json", err, w, r)
+		BadRequest("invalid-input", err, w, r)
+		return
+	}
+
+	err = h.validator.Struct(request)
+	if err != nil {
+		h.RespondValidationError(err.(validator.ValidationErrors), w, r)
 		return
 	}
 
@@ -180,27 +224,31 @@ func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 		Access:  tokens.Access.Token,
 		Refresh: tokens.Refresh.Token,
 	})
-
-	return
 }
 
 func (h *HttpServer) updateSettings(w http.ResponseWriter, r *http.Request) {
 	access, err := h.getAccessFromHeader(w, r)
 	if err != nil {
-		Unauthorised("unathorized", err, w, r)
+		Unauthorised("invalid-token", err, w, r)
 		return
 	}
 
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
-		BadRequest("invalid-body", err, w, r)
+		BadRequest("invalid-input", err, w, r)
 		return
 	}
 
 	var payload SettingsPayload
 	if err := json.Unmarshal(body, &payload); err != nil {
-		BadRequest("invalid-json", err, w, r)
+		BadRequest("invalid-input", err, w, r)
+		return
+	}
+
+	err = h.validator.Struct(payload)
+	if err != nil {
+		h.RespondValidationError(err.(validator.ValidationErrors), w, r)
 		return
 	}
 
@@ -211,7 +259,7 @@ func (h *HttpServer) updateSettings(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.app.AuthService.UpdateSettings(r.Context(), &serviceRequest)
 	if err != nil {
-		RespondWithAppError(err, w,r)
+		RespondWithAppError(err, w, r)
 		return
 	}
 
@@ -228,13 +276,13 @@ func (h *HttpServer) updateSettings(w http.ResponseWriter, r *http.Request) {
 func (h *HttpServer) me(w http.ResponseWriter, r *http.Request) {
 	access, err := h.getAccessFromHeader(w, r)
 	if err != nil {
-		Unauthorised("unathorized", err, w, r)
+		Unauthorised("invalid-token", err, w, r)
 		return
 	}
 
 	user, err := h.app.AuthService.GetUser(r.Context(), access.Claims.UserId)
 	if err != nil {
-		RespondWithAppError(err, w,r)
+		RespondWithAppError(err, w, r)
 		return
 	}
 
@@ -252,19 +300,25 @@ func (h *HttpServer) refresh(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
-		BadRequest("invalid-body", err, w, r)
+		BadRequest("invalid-input", err, w, r)
 		return
 	}
 
 	var request RefreshRequest
 	if err := json.Unmarshal(body, &request); err != nil {
-		BadRequest("invalid-json", err, w, r)
+		BadRequest("invalid-input", err, w, r)
+		return
+	}
+
+	err = h.validator.Struct(request)
+	if err != nil {
+		h.RespondValidationError(err.(validator.ValidationErrors), w, r)
 		return
 	}
 
 	tokens, err := h.app.AuthService.Refresh(r.Context(), request.Refresh, r.RemoteAddr)
 	if err != nil {
-		RespondWithAppError(err, w,r)
+		RespondWithAppError(err, w, r)
 		return
 	}
 
@@ -290,6 +344,7 @@ func InternalError(slug string, err error, w http.ResponseWriter, r *http.Reques
 }
 
 func Unauthorised(slug string, err error, w http.ResponseWriter, r *http.Request) {
+	log.Printf("Unathorized error %s", slug)
 	httpRespondWithError(err, slug, w, r, "Unauthorised", http.StatusUnauthorized)
 }
 

@@ -55,11 +55,11 @@ func NewAuthService(ur user.UserRepository, jwt *jwt.JWTService, rfr jwt.Refresh
 func (h *AuthService) SignIn(ctx context.Context, r *SignInRequest) (*LoginResponse, error) {
 	userFound, err := h.userRepository.FindByEmail(ctx, r.Email)
 	if err != nil {
-		return &LoginResponse{}, appErr.NewNotFoundError("User not found", "user-not-found")
+		return &LoginResponse{}, appErr.NewIncorrectInputError("User not found", "invalid-credentials")
 	}
 
 	if !user.CheckPasswordHash(r.Password, userFound.Hash) {
-		return &LoginResponse{}, appErr.NewNotFoundError("User not found", "user-not-found")
+		return &LoginResponse{}, appErr.NewIncorrectInputError("User not found", "invalid-credentials")
 	}
 
 	return h.createTokens(ctx, userFound, r.Ip)
@@ -72,7 +72,7 @@ func (h *AuthService) SignUp(ctx context.Context, r *SignUpRequest) (*LoginRespo
 			return &LoginResponse{}, err
 		}
 	} else {
-		return &LoginResponse{}, appErr.NewIncorrectInputError("Email already in use", "email-already-in-use")
+		return &LoginResponse{}, appErr.NewIncorrectInputError("Email already in use", "field-email-invalid")
 	}
 
 	hash, err := user.HashPassword(r.Password)
@@ -154,26 +154,26 @@ func (h *AuthService) SaveRefresh(ctx context.Context, user_uuid uuid.UUID) (*us
 func (h *AuthService) Refresh(ctx context.Context, tokenString, ip string) (*LoginResponse, error) {
 	refresh, err := h.jwtService.ValidateRefresh(tokenString, ip)
 	if err != nil {
-		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-jwt")
+		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
 	}
 
 	exists, err := h.refreshRepository.Exists(ctx, refresh.Claims.UUID, refresh.Claims.UserId, ip, tokenString)
 	if err != nil {
-		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-jwt")
+		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
 	}
 
 	if !exists {
-		return &LoginResponse{}, errors.NewAuthorizationError("Refresh not found", "invalid-jwt")
+		return &LoginResponse{}, errors.NewAuthorizationError("Refresh not found", "invalid-token")
 	}
 
 	err = h.refreshRepository.Delete(ctx, refresh.Claims.UUID)
 	if err != nil {
-		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-jwt")
+		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
 	}
 
 	user, err := h.userRepository.FindById(ctx, refresh.Claims.UserId)
 	if err != nil {
-		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-jwt")
+		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
 	}
 
 	return h.createTokens(ctx, user, ip)
@@ -182,7 +182,7 @@ func (h *AuthService) Refresh(ctx context.Context, tokenString, ip string) (*Log
 func (h *AuthService) UpdateSettings(ctx context.Context, request *UpdateSettingsRequest) (*user.User, error) {
 	cur, err := currency.FromString(request.Currency)
 	if err != nil {
-		return &user.User{}, appErr.NewIncorrectInputError("Invalid currency", "invalid-currency")
+		return &user.User{}, appErr.NewIncorrectInputError("Invalid currency", "field-currency-invalid")
 	}
 
 	settings := user.NewSettings(cur)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bysoft-wallet/users/internal/app/errors"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 )
@@ -100,7 +101,11 @@ func (h *JWTService) CreateRefresh(c RefreshClaims, ip string) (*RefreshJWT, err
 func (h *JWTService) ValidateAccess(token string) (*AccessJWT, error) {
 	t, err := jwt.ParseWithClaims(token, &AccessClaims{}, h.validateParsed)
 	if err != nil {
-		return &AccessJWT{}, err
+		return &AccessJWT{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
+	}
+
+	if !t.Valid {
+		return &AccessJWT{}, errors.NewAuthorizationError("Invalid token", "invalid-token")
 	}
 
 	return &AccessJWT{
@@ -115,6 +120,10 @@ func (h *JWTService) ValidateRefresh(token, ip string) (*RefreshJWT, error) {
 		return &RefreshJWT{}, nil
 	}
 	claims := *t.Claims.(*RefreshClaims)
+
+	if !t.Valid {
+		return &RefreshJWT{}, errors.NewAuthorizationError("Invalid token", "invalid-token")
+	}
 
 	return &RefreshJWT{
 		Claims: claims,

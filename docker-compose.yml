@@ -16,7 +16,7 @@ services:
     depends_on:
       - users-postgres
     networks:
-      - wallet-net
+      - users-net
 
   users-postgres:
     image: postgres:14.3
@@ -32,12 +32,12 @@ services:
       - .:/app
       - dbdata:/var/lib/postgresql/data
     networks:
-      - wallet-net 
+      - users-net 
       
   migrate:
       image: migrate/migrate
       networks:
-          - wallet-net
+          - users-net
       volumes:
           - ./database/migrations:/migrations
       environment:
@@ -49,5 +49,5 @@ volumes:
   dbdata:
 
 networks:
-  wallet-net:
+  users-net:
     driver: bridge
