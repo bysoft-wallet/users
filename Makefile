@@ -13,3 +13,6 @@ migrate-drop:
 
 migrate-create:	
 	docker-compose run migrate create -dir /migrations -ext sql $(name)	
+
+deploy:
+	docker compose -f docker-compose.prod.yml stop bysoft-users && docker compose -f docker-compose.prod.yml build bysoft-users --build-arg user=$(user) && docker compose -f docker-compose.prod.yml up -d
