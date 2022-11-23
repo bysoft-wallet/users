@@ -1,4 +1,4 @@
-.PHONY: migrate-up migrate-create
+.PHONY: migrate-up migrate-create deploy
 
 include .env
 
