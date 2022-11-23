@@ -114,19 +114,19 @@ func (h *AuthService) createTokens(ctx context.Context, user *user.User, ip stri
 	var err error
 	var wg sync.WaitGroup
 
-	go func (){
+	go func() {
 		access, err = h.jwtService.CreateAccess(*accessClaims)
 		wg.Done()
 	}()
 
-	go func (){
+	go func() {
 		refresh, err = h.jwtService.CreateRefresh(*refreshClaims, ip)
 		wg.Done()
 	}()
-	
+
 	wg.Add(2)
 
-	if err != nil{
+	if err != nil {
 		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "could-not-authorize-user")
 	}
 

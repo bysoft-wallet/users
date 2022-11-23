@@ -2,54 +2,47 @@ package app
 
 import (
 	"context"
-	"errors"
-	"os"
-	"strconv"
-
 	"github.com/bysoft-wallet/users/internal/adapters"
 	"github.com/bysoft-wallet/users/internal/app/jwt"
 	"github.com/bysoft-wallet/users/internal/app/service"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sirupsen/logrus"
 )
 
 type Application struct {
 	AuthService *service.AuthService
 	JWTService  *jwt.JWTService
+	Logger      *logrus.Logger
 }
 
-func NewApplication(ctx context.Context) (*Application, error) {
-	conn, err := pgx.Connect(ctx, os.Getenv("POSTGRES_URL"))
-	if err != nil {
-		return &Application{}, err
-	}
+type Config struct {
+	Ctx             context.Context
+	Logger          *logrus.Logger
+	DbPool          *pgxpool.Pool
+	JwtSecret       string
+	JwtAccessTTL    int
+	JwtRefreshTTL   int
+	MaxUserSessions int
+}
 
-	JWTSecret := os.Getenv("JWT_SECRET")
-	JWTAccessTTL, err := strconv.Atoi(os.Getenv("JWT_ACCESS_TTL"))
-	JWTRefreshTTL, err := strconv.Atoi(os.Getenv("JWT_REFRESH_TTL"))
-	if JWTSecret == "" || err != nil {
-		return &Application{}, errors.New("JWT configuration must be provided")
-	}
+func NewApplication(config *Config) (*Application, error) {
 
 	jwtService := jwt.NewJwtService(
-		JWTSecret,
-		JWTAccessTTL,
-		JWTRefreshTTL,
+		config.JwtSecret,
+		config.JwtAccessTTL,
+		config.JwtRefreshTTL,
 	)
 
-	maxSessions, err := strconv.Atoi(os.Getenv("MAX_USER_SESSIONS"))
-	if err != nil {
-		return &Application{}, errors.New("Max user sessions configuration must be provided")
-	}
-
 	authService := service.NewAuthService(
-		adapters.NewUserPgsqlRepository(conn),
+		adapters.NewUserPgsqlRepository(config.DbPool),
 		jwtService,
-		adapters.NewRefreshPgsqlRepository(conn),
-		maxSessions,
+		adapters.NewRefreshPgsqlRepository(config.DbPool),
+		config.MaxUserSessions,
 	)
 
 	return &Application{
 		AuthService: authService,
 		JWTService:  jwtService,
+		Logger:      config.Logger,
 	}, nil
 }

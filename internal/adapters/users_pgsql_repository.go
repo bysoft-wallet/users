@@ -9,7 +9,7 @@ import (
 	"github.com/bysoft-wallet/users/internal/app/user"
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserModel struct {
@@ -23,7 +23,7 @@ type UserModel struct {
 }
 
 type UserPgsqlRepository struct {
-	conn *pgx.Conn
+	pool *pgxpool.Pool
 }
 
 func UserSettingsToMap(s user.Settings) map[string]string {
@@ -32,14 +32,14 @@ func UserSettingsToMap(s user.Settings) map[string]string {
 	}
 }
 
-func NewUserPgsqlRepository(conn *pgx.Conn) *UserPgsqlRepository {
-	return &UserPgsqlRepository{conn}
+func NewUserPgsqlRepository(pool *pgxpool.Pool) *UserPgsqlRepository {
+	return &UserPgsqlRepository{pool}
 }
 
 func (s *UserPgsqlRepository) FindById(ctx context.Context, uuid uuid.UUID) (*user.User, error) {
 	userModel := &UserModel{}
 	if err := pgxscan.Get(
-		ctx, s.conn, userModel, "select uuid, email, name, hash, settings, created_at, updated_at from users where uuid = $1", uuid,
+		ctx, s.pool, userModel, "select uuid, email, name, hash, settings, created_at, updated_at from users where uuid = $1", uuid,
 	); err != nil {
 		if pgxscan.NotFound(err) {
 			return &user.User{}, errors.NewNotFoundError("User not found", "user-not-found")
@@ -54,7 +54,7 @@ func (s *UserPgsqlRepository) FindById(ctx context.Context, uuid uuid.UUID) (*us
 func (s *UserPgsqlRepository) FindByEmail(ctx context.Context, email string) (*user.User, error) {
 	userModel := &UserModel{}
 	if err := pgxscan.Get(
-		ctx, s.conn, userModel, "select uuid, email, name, hash, settings, created_at, updated_at from users where email = $1", email,
+		ctx, s.pool, userModel, "select uuid, email, name, hash, settings, created_at, updated_at from users where email = $1", email,
 	); err != nil {
 		if pgxscan.NotFound(err) {
 			return &user.User{}, errors.NewNotFoundError("User not found", "user-not-found")
@@ -67,7 +67,7 @@ func (s *UserPgsqlRepository) FindByEmail(ctx context.Context, email string) (*u
 }
 
 func (s *UserPgsqlRepository) Add(ctx context.Context, u *user.User) error {
-	_, err := s.conn.Exec(ctx, "insert into users(uuid, email, name, hash, settings, created_at, updated_at) values($1,$2,$3,$4,$5,$6, $7)", u.UUID, u.Email, u.Name, u.Hash, UserSettingsToMap(u.Settings), u.CreatedAt, u.UpdatedAt)
+	_, err := s.pool.Exec(ctx, "insert into users(uuid, email, name, hash, settings, created_at, updated_at) values($1,$2,$3,$4,$5,$6, $7)", u.UUID, u.Email, u.Name, u.Hash, UserSettingsToMap(u.Settings), u.CreatedAt, u.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (s *UserPgsqlRepository) Add(ctx context.Context, u *user.User) error {
 }
 
 func (s *UserPgsqlRepository) UpdateSettings(ctx context.Context, user_uuid uuid.UUID, settings *user.Settings) (*user.User, error) {
-	_, err := s.conn.Exec(ctx, "update users set settings = $1 where uuid = $2", UserSettingsToMap(*settings), user_uuid)
+	_, err := s.pool.Exec(ctx, "update users set settings = $1 where uuid = $2", UserSettingsToMap(*settings), user_uuid)
 	if err != nil {
 		return &user.User{}, err
 	}

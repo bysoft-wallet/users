@@ -30,14 +30,13 @@ type HttpServer struct {
 
 const DEFAULT_PORT = "8088"
 
-func NewHttpServer(app *app.Application, accessHeader string, logger *logrus.Logger) *HttpServer {
+func NewHttpServer(app *app.Application, accessHeader string) *HttpServer {
 	validate := validator.New()
 
 	return &HttpServer{
 		app:          app,
 		accessHeader: accessHeader,
 		validator:    validate,
-		logger:       logger,
 	}
 }
 
@@ -59,7 +58,7 @@ func (h *HttpServer) registerMiddlewares(r *chi.Mux) {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
-	r.Use(chilogger.Logger("router", h.logger))
+	r.Use(chilogger.Logger("router", h.app.Logger))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
@@ -122,7 +121,7 @@ func (e *UserResponse) Render(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (h *HttpServer) signIn(w http.ResponseWriter, r *http.Request) {
-	h.logger.Printf("IP %v", r.RemoteAddr)
+	h.app.Logger.Printf("IP %v", r.RemoteAddr)
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
@@ -349,7 +348,7 @@ func (h *HttpServer) InternalError(slug string, err error, w http.ResponseWriter
 }
 
 func (h *HttpServer) Unauthorised(slug string, err error, w http.ResponseWriter, r *http.Request) {
-	h.logger.Printf("Unathorized error %s", slug)
+	h.app.Logger.Printf("Unathorized error %s", slug)
 	h.httpRespondWithError(err, slug, w, r, "Unauthorised", http.StatusUnauthorized)
 }
 
@@ -381,7 +380,7 @@ func (h *HttpServer) RespondWithAppError(err error, w http.ResponseWriter, r *ht
 }
 
 func (h *HttpServer) httpRespondWithError(err error, slug string, w http.ResponseWriter, r *http.Request, logMSg string, status int) {
-	h.logger.Debug(map[string]string{
+	h.app.Logger.Debug(map[string]string{
 		"error-type": "HTTP Request Error",
 		"slug":       slug,
 		"error":      err.Error(),

@@ -7,7 +7,7 @@ import (
 	"github.com/bysoft-wallet/users/internal/app/jwt"
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type RefreshModel struct {
@@ -20,15 +20,15 @@ type RefreshModel struct {
 }
 
 type RefreshPgsqlRepository struct {
-	conn *pgx.Conn
+	pool *pgxpool.Pool
 }
 
-func NewRefreshPgsqlRepository(conn *pgx.Conn) *RefreshPgsqlRepository {
-	return &RefreshPgsqlRepository{conn}
+func NewRefreshPgsqlRepository(pool *pgxpool.Pool) *RefreshPgsqlRepository {
+	return &RefreshPgsqlRepository{pool}
 }
 
 func (s *RefreshPgsqlRepository) Add(ctx context.Context, refresh *jwt.RefreshJWT) error {
-	_, err := s.conn.Exec(ctx, "insert into refresh_tokens(uuid, user_uuid, token, ip, created_at, updated_at) values($1,$2,$3,$4,$5,$6)",
+	_, err := s.pool.Exec(ctx, "insert into refresh_tokens(uuid, user_uuid, token, ip, created_at, updated_at) values($1,$2,$3,$4,$5,$6)",
 		refresh.Claims.UUID,
 		refresh.Claims.UserId,
 		refresh.Token,
@@ -45,7 +45,7 @@ func (s *RefreshPgsqlRepository) Add(ctx context.Context, refresh *jwt.RefreshJW
 func (s *RefreshPgsqlRepository) Exists(ctx context.Context, uuid, userUUID uuid.UUID, ip string, token string) (bool, error) {
 	model := &RefreshModel{}
 	if err := pgxscan.Get(
-		ctx, s.conn, model, "select * from refresh_tokens where uuid = $1 and user_uuid = $2 and ip = $3 and token = $4",
+		ctx, s.pool, model, "select * from refresh_tokens where uuid = $1 and user_uuid = $2 and ip = $3 and token = $4",
 		uuid,
 		userUUID,
 		ip,
@@ -62,7 +62,7 @@ func (s *RefreshPgsqlRepository) Exists(ctx context.Context, uuid, userUUID uuid
 }
 
 func (s *RefreshPgsqlRepository) Delete(ctx context.Context, uuid uuid.UUID) error {
-	_, err := s.conn.Exec(ctx, "delete from refresh_tokens where uuid = $1", uuid)
+	_, err := s.pool.Exec(ctx, "delete from refresh_tokens where uuid = $1", uuid)
 
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func (s *RefreshPgsqlRepository) Delete(ctx context.Context, uuid uuid.UUID) err
 }
 
 func (s *RefreshPgsqlRepository) DeleteForUserUUID(ctx context.Context, userUUID uuid.UUID) error {
-	_, err := s.conn.Exec(ctx, "delete from refresh_tokens where user_uuid = $1", userUUID)
+	_, err := s.pool.Exec(ctx, "delete from refresh_tokens where user_uuid = $1", userUUID)
 
 	if err != nil {
 		return err
@@ -84,19 +84,6 @@ func (s *RefreshPgsqlRepository) DeleteForUserUUID(ctx context.Context, userUUID
 func (s *RefreshPgsqlRepository) CountForUser(ctx context.Context, userUUID uuid.UUID) (int, error) {
 	var counter int
 
-	err := s.conn.QueryRow(ctx, "SELECT count(*) FROM refresh_tokens where user_uuid = $1", userUUID).Scan(&counter)
+	err := s.pool.QueryRow(ctx, "SELECT count(*) FROM refresh_tokens where user_uuid = $1", userUUID).Scan(&counter)
 	return counter, err
-}
-
-func serviceRefreshJWTFromModel(model *RefreshModel) (*jwt.RefreshJWT, error) {
-	claims := &jwt.RefreshClaims{
-		UUID:   model.UUID,
-		UserId: model.UserUUID,
-	}
-
-	return &jwt.RefreshJWT{
-		Claims: *claims,
-		Token:  model.Token,
-		Ip:     model.Ip,
-	}, nil
 }
