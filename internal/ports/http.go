@@ -383,10 +383,10 @@ func (h *HttpServer) RespondWithAppError(err error, w http.ResponseWriter, r *ht
 func (h *HttpServer) httpRespondWithError(err error, slug string, w http.ResponseWriter, r *http.Request, logMSg string, status int) {
 	h.logger.Debug(map[string]string{
 		"error-type": "HTTP Request Error",
-		"slug": slug,
-		"error": err.Error(),
+		"slug":       slug,
+		"error":      err.Error(),
 	})
-	
+
 	resp := ErrorResponse{slug, status}
 
 	if err := render.Render(w, r, resp); err != nil {

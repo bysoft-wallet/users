@@ -11,6 +11,8 @@ services:
       - .env
     restart: unless-stopped
     tty: true
+    volumes:
+      - ./logs:/app/logs
     working_dir: /app
     ports:
       - ${APP_PORT}:${APP_PORT}

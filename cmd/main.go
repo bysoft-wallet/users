@@ -21,7 +21,7 @@ func main() {
 	}
 
 	accessHeader := os.Getenv("ACCESS_TOKEN_HEADER")
-	f, err := os.OpenFile("app-log.json", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	f, err := os.OpenFile("logs/app-log.json", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		fmt.Println("Failed to create logfile" + "app-log.json")
 		panic(err)
@@ -36,7 +36,7 @@ func main() {
 			TimestampFormat: "2006-01-02 15:04:05",
 		},
 	}
-	
+
 	server := ports.NewHttpServer(app, accessHeader, log)
 	server.Start()
 }
