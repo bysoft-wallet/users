@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"log"
+	"sync"
 	"time"
 
 	"github.com/bysoft-wallet/users/internal/app/currency"
@@ -109,13 +109,24 @@ func (h *AuthService) createTokens(ctx context.Context, user *user.User, ip stri
 		user.UUID,
 	)
 
-	access, err := h.jwtService.CreateAccess(*accessClaims)
-	if err != nil {
-		return &LoginResponse{}, appErr.NewAuthorizationError("Could not authorize user", "could-not-authorize-user")
-	}
+	var access *jwt.AccessJWT
+	var refresh *jwt.RefreshJWT
+	var err error
+	var wg sync.WaitGroup
 
-	refresh, err := h.jwtService.CreateRefresh(*refreshClaims, ip)
-	if err != nil {
+	go func (){
+		access, err = h.jwtService.CreateAccess(*accessClaims)
+		wg.Done()
+	}()
+
+	go func (){
+		refresh, err = h.jwtService.CreateRefresh(*refreshClaims, ip)
+		wg.Done()
+	}()
+	
+	wg.Add(2)
+
+	if err != nil{
 		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "could-not-authorize-user")
 	}
 
@@ -124,7 +135,6 @@ func (h *AuthService) createTokens(ctx context.Context, user *user.User, ip stri
 		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "could-not-authorize-user")
 	}
 
-	log.Printf("Refresh count %v sessions %v", refreshCount, h.maxUserSessions)
 	if refreshCount > h.maxUserSessions {
 		err = h.refreshRepository.DeleteForUserUUID(ctx, refreshClaims.UserId)
 		if err != nil {

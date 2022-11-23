@@ -3,4 +3,4 @@
 .env
 profile
 query-log
-app-log.json
+logs
