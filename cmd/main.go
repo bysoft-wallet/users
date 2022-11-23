@@ -27,7 +27,6 @@ func main() {
 	defer f.Close()
 
 	logger := &logrus.Logger{
-		// Log into f file handler and on os.Stdout
 		Out:   io.MultiWriter(f, os.Stdout),
 		Level: logrus.DebugLevel,
 		Formatter: &logrus.JSONFormatter{
@@ -36,26 +35,62 @@ func main() {
 	}
 
 	// init db connection pool
-	pool, err := pgxpool.New(ctx, os.Getenv("POSTGRES_URL"))
-	if err != nil {
-		logger.Errorf("pgxpool init error %v", err)
-		os.Exit(1)
-	}
-
 	queryLog, err := strconv.ParseBool(os.Getenv("ENABLE_QUERY_LOG"))
 	if err != nil {
 		queryLog = false
 	}
 
+	var pool *pgxpool.Pool
+
 	if queryLog {
-		addPoolTracer(pool, logger)
+		//init query  logger
+		queryf, err := os.OpenFile("logs/query-log.json", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			logger.Errorf("Failed to create logfile query-log.json %v", err)
+			os.Exit(1)
+		}
+		defer queryf.Close()
+
+		qlogger := &logrus.Logger{
+			// Log into f file handler and on os.Stdout
+			Out:   io.MultiWriter(queryf, os.Stdout),
+			Level: logrus.DebugLevel,
+			Formatter: &logrus.JSONFormatter{
+				TimestampFormat: time.RFC3339Nano,
+			},
+		}
+
+		config, err := pgxpool.ParseConfig(os.Getenv("POSTGRES_URL"))
+		if err != nil {
+			logger.Errorf("pgxpool init error %v", err)
+			os.Exit(1)
+		}
+
+		config.ConnConfig.Tracer = &QueryTracer{logger: qlogger}
+		pool, err = pgxpool.NewWithConfig(ctx, config)
+	} else {
+		pool, err = pgxpool.New(ctx, os.Getenv("POSTGRES_URL"))
+		if err != nil {
+			logger.Errorf("pgxpool init error %v", err)
+			os.Exit(1)
+		}
 	}
 
 	//init env variables
 	JWTSecret := os.Getenv("JWT_SECRET")
+	if JWTSecret == "" {
+		logger.Errorf("JWT configuration must be provided %v", err)
+		os.Exit(1)
+	}
+
 	JWTAccessTTL, err := strconv.Atoi(os.Getenv("JWT_ACCESS_TTL"))
+	if err != nil {
+		logger.Errorf("JWT configuration must be provided %v", err)
+		os.Exit(1)
+	}
+
 	JWTRefreshTTL, err := strconv.Atoi(os.Getenv("JWT_REFRESH_TTL"))
-	if JWTSecret == "" || err != nil {
+	if err != nil {
 		logger.Errorf("JWT configuration must be provided %v", err)
 		os.Exit(1)
 	}
@@ -98,16 +133,10 @@ type QueryTracer struct {
 }
 
 func (h QueryTracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	h.logger.Info("Query log query start", data)
 	return ctx
 }
 
 func (h QueryTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
-
-}
-
-func addPoolTracer(pool *pgxpool.Pool, logger *logrus.Logger) *pgxpool.Pool {
-	config := pool.Config()
-	config.ConnConfig.Tracer = QueryTracer{logger: logger}
-
-	return pool
+	h.logger.Info("Query log query end", data)
 }
