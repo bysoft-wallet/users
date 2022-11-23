@@ -29,10 +29,12 @@ COPY --from=build /bysoft-users /app/bysoft-users
 
 RUN addgroup -S $user && adduser -S $user -G $user
 
-RUN chown -R $user:$user  /app/bysoft-users
+RUN chown -R $user:$user /app
 RUN chmod +x /app/bysoft-users
 
 USER $user
+RUN mkdir -p /app/logs
+RUN chmod -R 777 /app/logs
 
 EXPOSE $app_port
 
