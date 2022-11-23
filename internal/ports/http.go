@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -13,27 +12,32 @@ import (
 	apperrors "github.com/bysoft-wallet/users/internal/app/errors"
 	"github.com/bysoft-wallet/users/internal/app/jwt"
 	"github.com/bysoft-wallet/users/internal/app/service"
+	chilogger "github.com/chi-middleware/logrus-logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 type HttpServer struct {
 	app          *app.Application
 	accessHeader string
 	validator    *validator.Validate
+	logger       *logrus.Logger
 }
 
 const DEFAULT_PORT = "8088"
 
-func NewHttpServer(app *app.Application, accessHeader string) *HttpServer {
+func NewHttpServer(app *app.Application, accessHeader string, logger *logrus.Logger) *HttpServer {
 	validate := validator.New()
+
 	return &HttpServer{
 		app:          app,
 		accessHeader: accessHeader,
 		validator:    validate,
+		logger:       logger,
 	}
 }
 
@@ -55,6 +59,7 @@ func (h *HttpServer) registerMiddlewares(r *chi.Mux) {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
+	r.Use(chilogger.Logger("router", h.logger))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
@@ -117,17 +122,17 @@ func (e *UserResponse) Render(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (h *HttpServer) signIn(w http.ResponseWriter, r *http.Request) {
-	log.Printf("IP %v", r.RemoteAddr)
+	h.logger.Printf("IP %v", r.RemoteAddr)
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
-		BadRequest("invalid-input", err, w, r)
+		h.BadRequest("invalid-input", err, w, r)
 		return
 	}
 
 	var request LoginRequest
 	if err := json.Unmarshal(body, &request); err != nil {
-		BadRequest("invalid-input", err, w, r)
+		h.BadRequest("invalid-input", err, w, r)
 		return
 	}
 
@@ -139,7 +144,7 @@ func (h *HttpServer) signIn(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.app.AuthService.SignIn(r.Context(), serviceRequest)
 	if err != nil {
-		RespondWithAppError(err, w, r)
+		h.RespondWithAppError(err, w, r)
 		return
 	}
 
@@ -184,20 +189,20 @@ func (h *HttpServer) RespondValidationError(errs []validator.FieldError, w http.
 		slug = "field-currency-required"
 	}
 
-	BadRequest(slug, err, w, r)
+	h.BadRequest(slug, err, w, r)
 }
 
 func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
-		BadRequest("invalid-input", err, w, r)
+		h.BadRequest("invalid-input", err, w, r)
 		return
 	}
 
 	var request SignUpRequest
 	if err := json.Unmarshal(body, &request); err != nil {
-		BadRequest("invalid-input", err, w, r)
+		h.BadRequest("invalid-input", err, w, r)
 		return
 	}
 
@@ -216,7 +221,7 @@ func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.app.AuthService.SignUp(r.Context(), serviceRequest)
 	if err != nil {
-		RespondWithAppError(err, w, r)
+		h.RespondWithAppError(err, w, r)
 		return
 	}
 
@@ -229,20 +234,20 @@ func (h *HttpServer) signUp(w http.ResponseWriter, r *http.Request) {
 func (h *HttpServer) updateSettings(w http.ResponseWriter, r *http.Request) {
 	access, err := h.getAccessFromHeader(w, r)
 	if err != nil {
-		Unauthorised("invalid-token", err, w, r)
+		h.Unauthorised("invalid-token", err, w, r)
 		return
 	}
 
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
-		BadRequest("invalid-input", err, w, r)
+		h.BadRequest("invalid-input", err, w, r)
 		return
 	}
 
 	var payload SettingsPayload
 	if err := json.Unmarshal(body, &payload); err != nil {
-		BadRequest("invalid-input", err, w, r)
+		h.BadRequest("invalid-input", err, w, r)
 		return
 	}
 
@@ -259,7 +264,7 @@ func (h *HttpServer) updateSettings(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.app.AuthService.UpdateSettings(r.Context(), &serviceRequest)
 	if err != nil {
-		RespondWithAppError(err, w, r)
+		h.RespondWithAppError(err, w, r)
 		return
 	}
 
@@ -276,13 +281,13 @@ func (h *HttpServer) updateSettings(w http.ResponseWriter, r *http.Request) {
 func (h *HttpServer) me(w http.ResponseWriter, r *http.Request) {
 	access, err := h.getAccessFromHeader(w, r)
 	if err != nil {
-		Unauthorised("invalid-token", err, w, r)
+		h.Unauthorised("invalid-token", err, w, r)
 		return
 	}
 
 	user, err := h.app.AuthService.GetUser(r.Context(), access.Claims.UserId)
 	if err != nil {
-		RespondWithAppError(err, w, r)
+		h.RespondWithAppError(err, w, r)
 		return
 	}
 
@@ -300,13 +305,13 @@ func (h *HttpServer) refresh(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {
-		BadRequest("invalid-input", err, w, r)
+		h.BadRequest("invalid-input", err, w, r)
 		return
 	}
 
 	var request RefreshRequest
 	if err := json.Unmarshal(body, &request); err != nil {
-		BadRequest("invalid-input", err, w, r)
+		h.BadRequest("invalid-input", err, w, r)
 		return
 	}
 
@@ -318,7 +323,7 @@ func (h *HttpServer) refresh(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.app.AuthService.Refresh(r.Context(), request.Refresh, r.RemoteAddr)
 	if err != nil {
-		RespondWithAppError(err, w, r)
+		h.RespondWithAppError(err, w, r)
 		return
 	}
 
@@ -339,44 +344,49 @@ func (h *HttpServer) getAccessFromHeader(w http.ResponseWriter, r *http.Request)
 	return access, nil
 }
 
-func InternalError(slug string, err error, w http.ResponseWriter, r *http.Request) {
-	httpRespondWithError(err, slug, w, r, "Internal server error", http.StatusInternalServerError)
+func (h *HttpServer) InternalError(slug string, err error, w http.ResponseWriter, r *http.Request) {
+	h.httpRespondWithError(err, slug, w, r, "Internal server error", http.StatusInternalServerError)
 }
 
-func Unauthorised(slug string, err error, w http.ResponseWriter, r *http.Request) {
-	log.Printf("Unathorized error %s", slug)
-	httpRespondWithError(err, slug, w, r, "Unauthorised", http.StatusUnauthorized)
+func (h *HttpServer) Unauthorised(slug string, err error, w http.ResponseWriter, r *http.Request) {
+	h.logger.Printf("Unathorized error %s", slug)
+	h.httpRespondWithError(err, slug, w, r, "Unauthorised", http.StatusUnauthorized)
 }
 
-func BadRequest(slug string, err error, w http.ResponseWriter, r *http.Request) {
-	httpRespondWithError(err, slug, w, r, "Bad request", http.StatusBadRequest)
+func (h *HttpServer) BadRequest(slug string, err error, w http.ResponseWriter, r *http.Request) {
+	h.httpRespondWithError(err, slug, w, r, "Bad request", http.StatusBadRequest)
 }
 
-func NotFound(slug string, err error, w http.ResponseWriter, r *http.Request) {
-	httpRespondWithError(err, slug, w, r, "Not found", http.StatusNotFound)
+func (h *HttpServer) NotFound(slug string, err error, w http.ResponseWriter, r *http.Request) {
+	h.httpRespondWithError(err, slug, w, r, "Not found", http.StatusNotFound)
 }
 
-func RespondWithAppError(err error, w http.ResponseWriter, r *http.Request) {
+func (h *HttpServer) RespondWithAppError(err error, w http.ResponseWriter, r *http.Request) {
 	appError, ok := err.(apperrors.AppError)
 	if !ok {
-		InternalError("internal-server-error", err, w, r)
+		h.InternalError("internal-server-error", err, w, r)
 		return
 	}
 
 	switch appError.ErrorType() {
 	case apperrors.ErrorTypeAuthorization:
-		Unauthorised(appError.Slug(), appError, w, r)
+		h.Unauthorised(appError.Slug(), appError, w, r)
 	case apperrors.ErrorTypeIncorrectInput:
-		BadRequest(appError.Slug(), appError, w, r)
+		h.BadRequest(appError.Slug(), appError, w, r)
 	case apperrors.ErrorNotFound:
-		NotFound(appError.Slug(), appError, w, r)
+		h.NotFound(appError.Slug(), appError, w, r)
 	default:
-		InternalError(appError.Slug(), appError, w, r)
+		h.InternalError(appError.Slug(), appError, w, r)
 	}
 }
 
-func httpRespondWithError(err error, slug string, w http.ResponseWriter, r *http.Request, logMSg string, status int) {
-	log.Printf("HTTP Request error %v", err)
+func (h *HttpServer) httpRespondWithError(err error, slug string, w http.ResponseWriter, r *http.Request, logMSg string, status int) {
+	h.logger.Debug(map[string]string{
+		"error-type": "HTTP Request Error",
+		"slug": slug,
+		"error": err.Error(),
+	})
+	
 	resp := ErrorResponse{slug, status}
 
 	if err := render.Render(w, r, resp); err != nil {
