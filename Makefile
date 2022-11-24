@@ -2,26 +2,31 @@
 
 include .env
 
+prod?=
+user?=bysoft
+
+docker_compose_args=-f docker-compose.yml$(if $(prod), -f docker-compose.prod.yml,)
+
 migrate-up:
-	docker compose -f docker-compose.prod.yml run migrate -path /migrations -database "${POSTGRES_URL}" -verbose up
+	docker compose $(docker_compose_args) run migrate -path /migrations -database "${POSTGRES_URL}" -verbose up
 
 migrate-down:
-	docker compose -f docker-compose.prod.yml run migrate -path /migrations -database "${POSTGRES_URL}" -verbose down
+	docker compose $(docker_compose_args) run migrate -path /migrations -database "${POSTGRES_URL}" -verbose down
 
 migrate-drop:
-	docker compose -f docker-compose.prod.yml run migrate -path /migrations -database "${POSTGRES_URL}" -verbose drop
+	docker compose $(docker_compose_args) run migrate -path /migrations -database "${POSTGRES_URL}" -verbose drop
 
 migrate-create:	
-	docker compose run migrate create -dir /migrations -ext sql $(name)	
+	docker compose $(docker_compose_args) run migrate create -dir /migrations -ext sql $(name)	
 
 docker-stop:
-	docker compose -f docker-compose.prod.yml stop bysoft-users
+	docker compose $(docker_compose_args) stop bysoft-users
 
 docker-build:
-	docker compose -f docker-compose.prod.yml build bysoft-users --build-arg user=$(user)
+	docker compose $(docker_compose_args) build bysoft-users --build-arg user=$(user)
 
 docker-up:
-	docker compose -f docker-compose.prod.yml up -d
+	docker compose $(docker_compose_args) up -d
 
 git-pull:
 	git pull origin main 
