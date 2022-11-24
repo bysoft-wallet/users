@@ -5,7 +5,7 @@ include .env
 prod?=
 user?=bysoft
 
-docker_compose_args=-f docker-compose.yml$(if $(prod), -f docker-compose.prod.yml,)
+docker_compose_args=$(if $(prod), -f docker-compose.prod.yml, -f docker-compose.yml)
 
 migrate-up:
 	docker compose $(docker_compose_args) run migrate -path /migrations -database "${POSTGRES_URL}" -verbose up
