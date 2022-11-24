@@ -23,7 +23,7 @@ docker-stop:
 	docker compose $(docker_compose_args) stop
 
 docker-build:
-	docker compose $(docker_compose_args) build bysoft-users --build-arg user=$(user)
+	docker compose $(docker_compose_args) build bysoft-users --build-arg user=$(user) --delete-orphans
 
 docker-up:
 	docker compose $(docker_compose_args) up -d
