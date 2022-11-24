@@ -20,10 +20,10 @@ migrate-create:
 	docker compose $(docker_compose_args) run migrate create -dir /migrations -ext sql $(name)	
 
 docker-stop:
-	docker compose $(docker_compose_args) stop
+	docker compose $(docker_compose_args) stop --remove-orphans
 
 docker-build:
-	docker compose $(docker_compose_args) build bysoft-users --build-arg user=$(user) --delete-orphans
+	docker compose $(docker_compose_args) build bysoft-users --build-arg user=$(user)
 
 docker-up:
 	docker compose $(docker_compose_args) up -d
