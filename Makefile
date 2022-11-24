@@ -3,16 +3,16 @@
 include .env
 
 migrate-up:
-	docker-compose run migrate -path /migrations -database "${POSTGRES_URL}" -verbose up
+	docker compose -f docker-compose.prod.yml run migrate -path /migrations -database "${POSTGRES_URL}" -verbose up
 
 migrate-down:
-	docker-compose run migrate -path /migrations -database "${POSTGRES_URL}" -verbose down
+	docker compose -f docker-compose.prod.yml run migrate -path /migrations -database "${POSTGRES_URL}" -verbose down
 
 migrate-drop:
-	docker-compose run migrate -path /migrations -database "${POSTGRES_URL}" -verbose drop
+	docker compose -f docker-compose.prod.yml run migrate -path /migrations -database "${POSTGRES_URL}" -verbose drop
 
 migrate-create:	
-	docker-compose  run migrate create -dir /migrations -ext sql $(name)	
+	docker compose run migrate create -dir /migrations -ext sql $(name)	
 
 docker-stop:
 	docker compose -f docker-compose.prod.yml stop bysoft-users
