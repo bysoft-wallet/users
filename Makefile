@@ -20,7 +20,7 @@ migrate-create:
 	docker compose $(docker_compose_args) run migrate create -dir /migrations -ext sql $(name)	
 
 docker-stop:
-	docker compose $(docker_compose_args) stop bysoft-users
+	docker compose $(docker_compose_args) stop
 
 docker-build:
 	docker compose $(docker_compose_args) build bysoft-users --build-arg user=$(user)
