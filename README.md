@@ -1,7 +1,7 @@
 # Users 
 Bysoft users service
 
-### POST http://bysoft.ru/users/api/v1/signIn - логин 
+### POST http://bysoft.ru/users/api/v1/signIn 
 
 Request
 ```json
@@ -19,7 +19,7 @@ Response
 }
 ```
 
-### POST http://bysoft.ru/users/api/v1/signUp - регистрация
+### POST http://bysoft.ru/users/api/v1/signUp
 
 Request
 ```json
@@ -38,7 +38,7 @@ Response
 }
 ```
 
-### GET http://bysoft.ru/users/api/v1/me - получение информации о профиле пользователя
+### GET http://bysoft.ru/users/api/v1/me - user profile info
 Требуется access-token в заголовке X-API-Token
 
 Response
@@ -54,13 +54,13 @@ Response
 }
 ```
 
-### PUT http://bysoft.ru/users/api/v1/settings - обновление настроек пользователя 
+### PUT http://bysoft.ru/users/api/v1/settings - update user settings
 Требуется access-token в заголовке X-API-Token
 
 Request
 ```json
  {
-    "currency": "RUR"
+    "currency": "EUR"
  }
 ```
 
@@ -77,7 +77,7 @@ Response
 }
 ```
 
-### POST http://bysoft.ru/users/api/v1/refresh - получение новых токенов по refresh
+### POST http://bysoft.ru/users/api/v1/refresh 
 
 Request
 ```json
@@ -94,7 +94,7 @@ Response
 }
 ```
 
-Для авторизации используются JWT токены с полями в payload:
+JWT Payload:
 ```json
 {
   "userId": "be53694e-7b60-4d57-b62f-4acaf5f458a1",
@@ -102,16 +102,11 @@ Response
 }
 ```
 
-### POST http://bysoft.ru/users/api/v1/validate_email - валидация email адреса
+### POST http://bysoft.ru/users/api/v1/validate_email 
 ```json
 {
   "email": "email@email.com"
 }
 ```
-Response
 
-HTTP 200 - валиден
-
-HTTP 422 - невалиден 
-
-### Ожидается что токен будет передаваться при последующих запросах в заголовке X-API-Token
+### For protected routes, Auth JWT must be sent in the Header X-API-Token.
