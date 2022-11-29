@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
     tty: true
     ports:
-      - 35432:5432
+      - 45432:5432
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

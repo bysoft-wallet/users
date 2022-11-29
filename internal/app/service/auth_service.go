@@ -8,8 +8,8 @@ import (
 	"github.com/bysoft-wallet/users/internal/app/currency"
 	"github.com/bysoft-wallet/users/internal/app/errors"
 	appErr "github.com/bysoft-wallet/users/internal/app/errors"
-	"github.com/bysoft-wallet/users/internal/app/jwt"
 	"github.com/bysoft-wallet/users/internal/app/user"
+	"github.com/bysoft-wallet/users/pkg/jwt"
 	"github.com/google/uuid"
 )
 

@@ -5,16 +5,17 @@ include .env
 prod?=
 user?=bysoft
 
+postgres_url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST}:5432/${POSTGRES_DB}?sslmode=disable"
 docker_compose_args=$(if $(prod), -f docker-compose.prod.yml, -f docker-compose.yml)
 
 migrate-up:
-	docker compose $(docker_compose_args) run migrate -path /migrations -database "${POSTGRES_URL}" -verbose up
+	docker compose $(docker_compose_args) run migrate -path /migrations -database $(postgres_url) -verbose up
 
 migrate-down:
-	docker compose $(docker_compose_args) run migrate -path /migrations -database "${POSTGRES_URL}" -verbose down
+	docker compose $(docker_compose_args) run migrate -path /migrations -database $(postgres_url) -verbose down
 
 migrate-drop:
-	docker compose $(docker_compose_args) run migrate -path /migrations -database "${POSTGRES_URL}" -verbose drop
+	docker compose $(docker_compose_args) run migrate -path /migrations -database $(postgres_url) -verbose drop
 
 migrate-create:	
 	docker compose $(docker_compose_args) run migrate create -dir /migrations -ext sql $(name)	

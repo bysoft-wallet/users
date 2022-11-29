@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bysoft-wallet/users/internal/app/jwt"
+	"github.com/bysoft-wallet/users/pkg/jwt"
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"

@@ -40,6 +40,32 @@ func main() {
 		queryLog = false
 	}
 
+	postgresDB := os.Getenv("POSTGRES_DB")
+	if postgresDB == "" {
+		fmt.Println("POSTGRES_DB configuration must be provided")
+		os.Exit(1)
+	}
+
+	postgresUser := os.Getenv("POSTGRES_USER")
+	if postgresUser == "" {
+		fmt.Println("POSTGRES_USER configuration must be provided")
+		os.Exit(1)
+	}
+
+	postgresPass := os.Getenv("POSTGRES_PASSWORD")
+	if postgresPass == "" {
+		fmt.Println("POSTGRES_PASSWORD configuration must be provided")
+		os.Exit(1)
+	}
+
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		fmt.Println("DB_HOST configuration must be provided")
+		os.Exit(1)
+	}
+
+	postgresString := fmt.Sprintf("postgres://%s:%s@%s:5432/%s?sslmode=disable", postgresUser, postgresPass, dbHost, postgresDB)
+
 	var pool *pgxpool.Pool
 
 	if queryLog {
@@ -60,7 +86,7 @@ func main() {
 			},
 		}
 
-		config, err := pgxpool.ParseConfig(os.Getenv("POSTGRES_URL"))
+		config, err := pgxpool.ParseConfig(postgresString)
 		if err != nil {
 			logger.Errorf("pgxpool init error %v", err)
 			os.Exit(1)
@@ -68,8 +94,12 @@ func main() {
 
 		config.ConnConfig.Tracer = &QueryTracer{logger: qlogger}
 		pool, err = pgxpool.NewWithConfig(ctx, config)
+		if err != nil {
+			logger.Errorf("pgxpool init error %v", err)
+			os.Exit(1)
+		}
 	} else {
-		pool, err = pgxpool.New(ctx, os.Getenv("POSTGRES_URL"))
+		pool, err = pgxpool.New(ctx, postgresString)
 		if err != nil {
 			logger.Errorf("pgxpool init error %v", err)
 			os.Exit(1)

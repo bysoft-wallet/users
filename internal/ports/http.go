@@ -10,8 +10,8 @@ import (
 
 	"github.com/bysoft-wallet/users/internal/app"
 	apperrors "github.com/bysoft-wallet/users/internal/app/errors"
-	"github.com/bysoft-wallet/users/internal/app/jwt"
 	"github.com/bysoft-wallet/users/internal/app/service"
+	"github.com/bysoft-wallet/users/pkg/jwt"
 	chilogger "github.com/chi-middleware/logrus-logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -65,7 +65,7 @@ func (h *HttpServer) registerMiddlewares(r *chi.Mux) {
 }
 
 func (h *HttpServer) registerRoutes(r *chi.Mux) {
-	r.Route("/users/api/v1", func(r chi.Router) {
+	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			render.JSON(w, r, map[string]string{"status": "ok"})
 		})
@@ -121,7 +121,6 @@ func (e *UserResponse) Render(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (h *HttpServer) signIn(w http.ResponseWriter, r *http.Request) {
-	h.app.Logger.Printf("IP %v", r.RemoteAddr)
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body) // response body is []byte
 	if err != nil {

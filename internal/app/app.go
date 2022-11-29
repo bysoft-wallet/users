@@ -3,8 +3,8 @@ package app
 import (
 	"context"
 	"github.com/bysoft-wallet/users/internal/adapters"
-	"github.com/bysoft-wallet/users/internal/app/jwt"
 	"github.com/bysoft-wallet/users/internal/app/service"
+	"github.com/bysoft-wallet/users/pkg/jwt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
 )
