@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bysoft-wallet/users/internal/app/currency"
 	appErr "github.com/bysoft-wallet/users/internal/app/errors"
 	"github.com/bysoft-wallet/users/internal/app/user"
+	"github.com/bysoft-wallet/users/pkg/currency"
 	"github.com/bysoft-wallet/users/pkg/jwt"
 	"github.com/google/uuid"
 )

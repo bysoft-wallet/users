@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/bysoft-wallet/users/internal/app/currency"
 	"github.com/bysoft-wallet/users/internal/app/errors"
 	"github.com/bysoft-wallet/users/internal/app/user"
+	"github.com/bysoft-wallet/users/pkg/currency"
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"

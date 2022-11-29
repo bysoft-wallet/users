@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bysoft-wallet/users/internal/app/currency"
+	"github.com/bysoft-wallet/users/pkg/currency"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
