@@ -1,7 +1,7 @@
 version: '3.1'
 
 services:
-  bysoft-users:
+  users-app:
     build:
       context: ./
       dockerfile: ./docker/prod/Dockerfile
