@@ -20,17 +20,18 @@ type Config struct {
 	Logger          *logrus.Logger
 	DbPool          *pgxpool.Pool
 	JwtSecret       string
-	JwtAccessTTL    int
-	JwtRefreshTTL   int
+	JwtAccessTTL    *int
+	JwtRefreshTTL   *int
 	MaxUserSessions int
 }
 
 func NewApplication(config *Config) (*Application, error) {
 
-	jwtService := jwt.NewJwtService(
-		config.JwtSecret,
-		config.JwtAccessTTL,
-		config.JwtRefreshTTL,
+	jwtService := jwt.NewJwtService(&jwt.JWTConfig{
+			Secret: config.JwtSecret,
+			AccessTTL: config.JwtAccessTTL,
+			RefreshTTL: config.JwtRefreshTTL,
+		},
 	)
 
 	authService := service.NewAuthService(

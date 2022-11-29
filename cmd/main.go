@@ -113,17 +113,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	JWTAccessTTL, err := strconv.Atoi(os.Getenv("JWT_ACCESS_TTL"))
+	var JWTAccessTTL, JWTRefreshTTL *int
+	attl, err := strconv.Atoi(os.Getenv("JWT_ACCESS_TTL"))
 	if err != nil {
-		logger.Errorf("JWT configuration must be provided %v", err)
-		os.Exit(1)
+		JWTAccessTTL = nil
 	}
+	JWTAccessTTL = &attl
 
-	JWTRefreshTTL, err := strconv.Atoi(os.Getenv("JWT_REFRESH_TTL"))
+	rttl, err := strconv.Atoi(os.Getenv("JWT_REFRESH_TTL"))
 	if err != nil {
-		logger.Errorf("JWT configuration must be provided %v", err)
-		os.Exit(1)
+		JWTRefreshTTL = nil
 	}
+	JWTRefreshTTL = &rttl	
 
 	maxSessions, err := strconv.Atoi(os.Getenv("MAX_USER_SESSIONS"))
 	if err != nil {

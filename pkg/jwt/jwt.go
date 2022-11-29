@@ -10,8 +10,8 @@ import (
 
 type JWTService struct {
 	secret     string
-	accessTTL  int
-	refreshTTL int
+	accessTTL  *int
+	refreshTTL *int
 }
 
 type AccessClaims struct {
@@ -36,6 +36,12 @@ type RefreshJWT struct {
 	Ip     string
 }
 
+type JWTConfig struct {
+	Secret     string
+	AccessTTL  *int
+	RefreshTTL *int
+}
+
 func NewAccessClaims(UserId uuid.UUID, Email, Name string) *AccessClaims {
 	return &AccessClaims{
 		UserId: UserId,
@@ -48,16 +54,20 @@ func NewRefreshClaims(UserId uuid.UUID) *RefreshClaims {
 	}
 }
 
-func NewJwtService(secret string, accessTTL, refreshTTL int) *JWTService {
+func NewJwtService(config *JWTConfig) *JWTService {
 	return &JWTService{
-		secret:     secret,
-		accessTTL:  accessTTL,
-		refreshTTL: refreshTTL,
+		secret:     config.Secret,
+		accessTTL:  config.AccessTTL,
+		refreshTTL: config.RefreshTTL,
 	}
 }
 
 func (h *JWTService) CreateAccess(c AccessClaims) (*AccessJWT, error) {
-	c.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Duration(h.accessTTL) * time.Second))
+	if h.accessTTL == nil{
+		return &AccessJWT{}, errors.New("jwt access ttl configuration must be provided")
+	}
+
+	c.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Duration(*h.accessTTL) * time.Second))
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
 
 	sign, err := token.SignedString([]byte(h.secret))
@@ -72,7 +82,10 @@ func (h *JWTService) CreateAccess(c AccessClaims) (*AccessJWT, error) {
 }
 
 func (h *JWTService) CreateRefresh(c RefreshClaims, ip string) (*RefreshJWT, error) {
-	c.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Duration(h.refreshTTL) * time.Second))
+	if h.refreshTTL == nil{
+		return &RefreshJWT{}, errors.New("jwt refresh ttl configuration must be provided")
+	}
+	c.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Duration(*h.refreshTTL) * time.Second))
 	c.UUID = uuid.New()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
