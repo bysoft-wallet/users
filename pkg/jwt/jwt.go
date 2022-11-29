@@ -1,7 +1,6 @@
 package jwt
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v4"
@@ -35,14 +34,6 @@ type RefreshJWT struct {
 	Claims RefreshClaims
 	Token  string
 	Ip     string
-}
-
-type RefreshJWTRepository interface {
-	Add(ctx context.Context, refresh *RefreshJWT) error
-	Exists(ctx context.Context, uuid, userUUID uuid.UUID, ip string, token string) (bool, error)
-	Delete(ctx context.Context, uuid uuid.UUID) error
-	DeleteForUserUUID(ctx context.Context, userUUID uuid.UUID) error
-	CountForUser(ctx context.Context, userUUID uuid.UUID) (int, error)
 }
 
 func NewAccessClaims(UserId uuid.UUID, Email, Name string) *AccessClaims {

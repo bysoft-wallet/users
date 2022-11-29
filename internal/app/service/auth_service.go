@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bysoft-wallet/users/internal/app/currency"
-	"github.com/bysoft-wallet/users/internal/app/errors"
 	appErr "github.com/bysoft-wallet/users/internal/app/errors"
 	"github.com/bysoft-wallet/users/internal/app/user"
 	"github.com/bysoft-wallet/users/pkg/jwt"
@@ -16,7 +15,7 @@ import (
 type AuthService struct {
 	userRepository    user.UserRepository
 	jwtService        *jwt.JWTService
-	refreshRepository jwt.RefreshJWTRepository
+	refreshRepository RefreshJWTRepository
 	maxUserSessions   int
 }
 
@@ -43,7 +42,15 @@ type UpdateSettingsRequest struct {
 	Currency string
 }
 
-func NewAuthService(ur user.UserRepository, jwt *jwt.JWTService, rfr jwt.RefreshJWTRepository, mus int) *AuthService {
+type RefreshJWTRepository interface {
+	Add(ctx context.Context, refresh *jwt.RefreshJWT) error
+	Exists(ctx context.Context, uuid, userUUID uuid.UUID, ip string, token string) (bool, error)
+	Delete(ctx context.Context, uuid uuid.UUID) error
+	DeleteForUserUUID(ctx context.Context, userUUID uuid.UUID) error
+	CountForUser(ctx context.Context, userUUID uuid.UUID) (int, error)
+}
+
+func NewAuthService(ur user.UserRepository, jwt *jwt.JWTService, rfr RefreshJWTRepository, mus int) *AuthService {
 	return &AuthService{
 		userRepository:    ur,
 		jwtService:        jwt,
@@ -164,26 +171,26 @@ func (h *AuthService) SaveRefresh(ctx context.Context, user_uuid uuid.UUID) (*us
 func (h *AuthService) Refresh(ctx context.Context, tokenString, ip string) (*LoginResponse, error) {
 	refresh, err := h.jwtService.ValidateRefresh(tokenString, ip)
 	if err != nil {
-		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
+		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "invalid-token")
 	}
 
 	exists, err := h.refreshRepository.Exists(ctx, refresh.Claims.UUID, refresh.Claims.UserId, ip, tokenString)
 	if err != nil {
-		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
+		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "invalid-token")
 	}
 
 	if !exists {
-		return &LoginResponse{}, errors.NewAuthorizationError("Refresh not found", "invalid-token")
+		return &LoginResponse{}, appErr.NewAuthorizationError("Refresh not found", "invalid-token")
 	}
 
 	err = h.refreshRepository.Delete(ctx, refresh.Claims.UUID)
 	if err != nil {
-		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
+		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "invalid-token")
 	}
 
 	user, err := h.userRepository.FindById(ctx, refresh.Claims.UserId)
 	if err != nil {
-		return &LoginResponse{}, errors.NewAuthorizationError(err.Error(), "invalid-token")
+		return &LoginResponse{}, appErr.NewAuthorizationError(err.Error(), "invalid-token")
 	}
 
 	return h.createTokens(ctx, user, ip)
