@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bysoft-wallet/users/internal/app"
@@ -332,7 +333,13 @@ func (h *HttpServer) refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HttpServer) getAccessFromHeader(w http.ResponseWriter, r *http.Request) (*jwt.AccessJWT, error) {
-	tokenHeader := r.Header.Get("X-API-Token")
+	reqToken := r.Header.Get("Authorization")
+	splitToken := strings.Split(reqToken, "Bearer ")
+	if len(splitToken)< 2{
+		return &jwt.AccessJWT{}, apperrors.NewAuthorizationError("Token not presented", "invalid-token")
+	}
+	
+	tokenHeader := splitToken[1]
 
 	access, err := h.app.JWTService.ValidateAccess(tokenHeader)
 	if err != nil {
