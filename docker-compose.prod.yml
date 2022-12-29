@@ -15,7 +15,7 @@ services:
       - ./logs:/app/logs
     working_dir: /app
     ports:
-      - 127.0.0.1:${APP_PORT}:${APP_PORT}
+      - ${APP_PORT}:${APP_PORT}
     depends_on:
       - users-postgres
     networks:
@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     tty: true
     ports:
-      - 127.0.0.1:25432:5432
+      - 25432:5432
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -49,7 +49,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
 volumes:
-  dbdata:
+  prod-dbdata:
 
 
 networks:
