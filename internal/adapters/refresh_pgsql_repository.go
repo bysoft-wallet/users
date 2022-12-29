@@ -45,10 +45,9 @@ func (s *RefreshPgsqlRepository) Add(ctx context.Context, refresh *jwt.RefreshJW
 func (s *RefreshPgsqlRepository) Exists(ctx context.Context, uuid, userUUID uuid.UUID, ip string, token string) (bool, error) {
 	model := &RefreshModel{}
 	if err := pgxscan.Get(
-		ctx, s.pool, model, "select * from refresh_tokens where uuid = $1 and user_uuid = $2 and ip = $3 and token = $4",
+		ctx, s.pool, model, "select * from refresh_tokens where uuid = $1 and user_uuid = $2 and token = $4",
 		uuid,
 		userUUID,
-		ip,
 		token,
 	); err != nil {
 		if pgxscan.NotFound(err) {
