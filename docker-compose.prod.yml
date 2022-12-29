@@ -33,7 +33,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - .:/app
-      - dbdata:/var/lib/postgresql/data
+      - prod-dbdata:/var/lib/postgresql/data
     networks:
       - users-net
 
